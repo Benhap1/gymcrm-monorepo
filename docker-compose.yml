@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: gymcrm-postgres
+    environment:
+      POSTGRES_DB: gymcrm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - gymcrm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+  eureka-server:
+    build:
+      context: ./gym-crm-discovery
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - gymcrm-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+
+
+  gym-crm-service:
+    build:
+      context: ./Spring-core-task
+    container_name: gym-crm-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    networks:
+      - gymcrm-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - EUREKA_CLIENT_REGISTRATION_RETRY_ENABLED=true
+      - EUREKA_CLIENT_REGISTRATION_RETRY_INTERVAL_SECONDS=5
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/gymcrm
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+
+
+  trainer-workload-service:
+    build:
+      context: ./trainer-workload-service
+    container_name: trainer-workload-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    networks:
+      - gymcrm-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - EUREKA_CLIENT_REGISTRATION_RETRY_ENABLED=true
+      - EUREKA_CLIENT_REGISTRATION_RETRY_INTERVAL_SECONDS=5
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/gymcrm
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+
+networks:
+  gymcrm-network:
+    driver: bridge
