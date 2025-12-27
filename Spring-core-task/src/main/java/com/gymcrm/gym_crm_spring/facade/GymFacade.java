@@ -41,6 +41,8 @@ import com.gymcrm.gym_crm_spring.service.TrainingTypeService;
 import com.gymcrm.gym_crm_spring.service.UserService;
 import com.gymcrm.gym_crm_spring.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -59,6 +61,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class GymFacade {
 
     private final TraineeService traineeService;
@@ -293,6 +296,7 @@ public class GymFacade {
                 workloadClient.updateWorkload(workloadRequest, jwtToken);
             }
         } catch (Exception e) {
+            log.error("Failed to update workload service", e);
         }
     }
 
