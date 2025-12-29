@@ -29,30 +29,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
-            String token = resolveToken(request);
-
-            if (token != null && jwtTokenProvider.validateToken(token)) {
-                String username = jwtTokenProvider.extractUsername(token);
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(
-                                username,
-                                null,
-                                Collections.emptyList()
-                        );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
+            authenticateRequest(request);
         } catch (Exception ex) {
             log.error("Cannot set user authentication: {}", ex.getMessage());
         }
         filterChain.doFilter(request, response);
     }
 
+    private void authenticateRequest(HttpServletRequest request) {
+        String token = resolveToken(request);
+        if (!isValidToken(token)) {
+            return;
+        }
+
+        String username = jwtTokenProvider.extractUsername(token);
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(username, null, Collections.emptyList());
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private boolean isValidToken(String token) {
+        return token != null && jwtTokenProvider.validateToken(token);
+    }
+
     private String resolveToken(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
-            return bearer.substring(7);
+        if (!StringUtils.hasText(bearer) || !bearer.startsWith("Bearer ")) {
+            return null;
         }
-        return null;
+        return bearer.substring(7);
     }
 }

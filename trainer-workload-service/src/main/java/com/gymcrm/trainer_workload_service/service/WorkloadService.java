@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,84 +38,86 @@ public class WorkloadService {
     }
 
     private void handleAdd(TrainerWorkloadRequest request) {
-        String username = request.getUsername();
-        int year = request.getTrainingDate().getYear();
-        String month = request.getTrainingDate().getMonth().name();
-        int duration = request.getTrainingDuration();
-
-        TrainerWorkload workload = workloadMap.get(username);
-
-        if (workload == null) {
-            workload = new TrainerWorkload(
-                    username,
-                    request.getFirstName(),
-                    request.getLastName(),
-                    Boolean.TRUE.equals(request.getIsActive()) ? "ACTIVE" : "INACTIVE",
-                    new ArrayList<>()
-            );
-            workloadMap.put(username, workload);
-        } else {
-            workload.setFirstName(request.getFirstName());
-            workload.setLastName(request.getLastName());
-            workload.setStatus(Boolean.TRUE.equals(request.getIsActive()) ? "ACTIVE" : "INACTIVE");
-        }
-
-        YearSummary yearSummary = workload.getYears().stream()
-                .filter(y -> y.getYear() == year)
-                .findFirst()
-                .orElse(null);
-
-        if (yearSummary == null) {
-            yearSummary = new YearSummary(year, new ArrayList<>());
-            workload.getYears().add(yearSummary);
-        }
-
-        MonthSummary monthSummary = yearSummary.getMonths().stream()
-                .filter(m -> m.getMonth().equalsIgnoreCase(month))
-                .findFirst()
-                .orElse(null);
-
-        if (monthSummary == null) {
-            monthSummary = new MonthSummary(month, 0);
-            yearSummary.getMonths().add(monthSummary);
-        }
-
-        monthSummary.setTrainingSummaryDuration(
-                monthSummary.getTrainingSummaryDuration() + duration
+        TrainerWorkload workload = workloadMap.computeIfAbsent(request.getUsername(),
+                username -> new TrainerWorkload(
+                        username,
+                        request.getFirstName(),
+                        request.getLastName(),
+                        getStatus(request),
+                        new ArrayList<>()
+                )
         );
+
+        updateTrainerInfo(workload, request);
+
+        YearSummary yearSummary = getOrCreateYearSummary(workload.getYears(), request.getTrainingDate().getYear());
+        MonthSummary monthSummary = getOrCreateMonthSummary(yearSummary.getMonths(), request.getTrainingDate().getMonth().name());
+
+        monthSummary.setTrainingSummaryDuration(monthSummary.getTrainingSummaryDuration() + request.getTrainingDuration());
     }
 
     private void handleDelete(TrainerWorkloadRequest request) {
-        String username = request.getUsername();
-        int year = request.getTrainingDate().getYear();
-        String month = request.getTrainingDate().getMonth().name();
-        int duration = request.getTrainingDuration();
-
-        TrainerWorkload workload = workloadMap.get(username);
+        TrainerWorkload workload = workloadMap.get(request.getUsername());
         if (workload == null) {
-            throw new TrainerNotFoundException("Trainer " + username + " not found");
+            throw new TrainerNotFoundException("Trainer " + request.getUsername() + " not found");
         }
 
-        YearSummary yearSummary = workload.getYears().stream()
-                .filter(y -> y.getYear() == year)
-                .findFirst()
-                .orElseThrow(() ->
-                        new InvalidDeleteException("Year " + year + " has no records for this trainer"));
-
-        MonthSummary monthSummary = yearSummary.getMonths().stream()
-                .filter(m -> m.getMonth().equalsIgnoreCase(month))
-                .findFirst()
-                .orElseThrow(() ->
-                        new InvalidDeleteException("Month " + month + " has no records for this trainer"));
+        YearSummary yearSummary = findYearSummary(workload.getYears(), request.getTrainingDate().getYear());
+        MonthSummary monthSummary = findMonthSummary(yearSummary.getMonths(), request.getTrainingDate().getMonth().name());
 
         int current = monthSummary.getTrainingSummaryDuration();
-
-        if (duration > current) {
+        if (request.getTrainingDuration() > current) {
             throw new InvalidDeleteException(
-                    "Cannot delete " + duration + " hours. Only " + current + " exist."
+                    "Cannot delete " + request.getTrainingDuration() + " hours. Only " + current + " exist."
             );
         }
 
-        monthSummary.setTrainingSummaryDuration(current - duration);
+        monthSummary.setTrainingSummaryDuration(current - request.getTrainingDuration());
+    }
+
+    private String getStatus(TrainerWorkloadRequest request) {
+        return Boolean.TRUE.equals(request.getIsActive()) ? "ACTIVE" : "INACTIVE";
+    }
+
+    private void updateTrainerInfo(TrainerWorkload workload, TrainerWorkloadRequest request) {
+        workload.setFirstName(request.getFirstName());
+        workload.setLastName(request.getLastName());
+        workload.setStatus(getStatus(request));
+    }
+
+    private YearSummary getOrCreateYearSummary(List<YearSummary> years, int year) {
+        return years.stream()
+                .filter(y -> y.getYear() == year)
+                .findFirst()
+                .orElseGet(() -> {
+                    YearSummary newYear = new YearSummary(year, new ArrayList<>());
+                    years.add(newYear);
+                    return newYear;
+                });
+    }
+
+    private MonthSummary getOrCreateMonthSummary(List<MonthSummary> months, String month) {
+        return months.stream()
+                .filter(m -> m.getMonth().equalsIgnoreCase(month))
+                .findFirst()
+                .orElseGet(() -> {
+                    MonthSummary newMonth = new MonthSummary(month, 0);
+                    months.add(newMonth);
+                    return newMonth;
+                });
+    }
+
+    private YearSummary findYearSummary(List<YearSummary> years, int year) {
+        return years.stream()
+                .filter(y -> y.getYear() == year)
+                .findFirst()
+                .orElseThrow(() -> new InvalidDeleteException("Year " + year + " has no records for this trainer"));
+    }
+
+    private MonthSummary findMonthSummary(List<MonthSummary> months, String month) {
+        return months.stream()
+                .filter(m -> m.getMonth().equalsIgnoreCase(month))
+                .findFirst()
+                .orElseThrow(() -> new InvalidDeleteException("Month " + month + " has no records for this trainer"));
     }
 }

@@ -36,6 +36,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // ActiveMQ / JMS
+    implementation 'org.springframework.boot:spring-boot-starter-activemq'
+    implementation 'jakarta.jms:jakarta.jms-api'
+
+
     // === OPENAPI + SWAGGER UI ===
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 

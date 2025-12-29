@@ -116,24 +116,61 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiErrorResponse> handleJsonParseError(HttpMessageNotReadableException ex, HttpServletRequest req) {
-        Throwable cause = ex.getMostSpecificCause();
-        String message;
-        if (cause instanceof InvalidFormatException ife) {
-            if (ife.getCause() instanceof DateTimeParseException) {
-                message = "Invalid date format. Use yyyy-MM-dd (e.g. 2025-10-15)";
-            } else {
-                message = String.format("Invalid value '%s' for field '%s'. Expected type: %s",
-                        ife.getValue(),
-                        ife.getPath().isEmpty() ? "unknown" : ife.getPath().get(0).getFieldName(),
-                        ife.getTargetType() != null ? ife.getTargetType().getSimpleName() : "unknown");
-            }
-        } else if (cause instanceof DateTimeParseException) {
-            message = "Invalid date format. Use yyyy-MM-dd (e.g. 2025-10-15)";
-        } else {
-            message = "Invalid JSON format or value type: " + cause.getMessage();
-        }
+    public ResponseEntity<ApiErrorResponse> handleJsonParseError(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest req
+    ) {
+        String message = resolveJsonErrorMessage(ex);
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(buildErrorResponse(HttpStatus.BAD_REQUEST, "INVALID_JSON", message, req.getRequestURI()));
+                .body(buildErrorResponse(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_JSON",
+                        message,
+                        req.getRequestURI()
+                ));
+    }
+
+    private String resolveJsonErrorMessage(HttpMessageNotReadableException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+
+        if (cause instanceof InvalidFormatException ife) {
+            return handleInvalidFormat(ife);
+        }
+
+        if (cause instanceof DateTimeParseException) {
+            return invalidDateMessage();
+        }
+
+        return "Invalid JSON format or value type: " + cause.getMessage();
+    }
+
+    private String handleInvalidFormat(InvalidFormatException ife) {
+        if (ife.getCause() instanceof DateTimeParseException) {
+            return invalidDateMessage();
+        }
+
+        return String.format(
+                "Invalid value '%s' for field '%s'. Expected type: %s",
+                ife.getValue(),
+                extractFieldName(ife),
+                extractTargetType(ife)
+        );
+    }
+
+    private String extractFieldName(InvalidFormatException ife) {
+        return ife.getPath().isEmpty()
+                ? "unknown"
+                : ife.getPath().get(0).getFieldName();
+    }
+
+    private String extractTargetType(InvalidFormatException ife) {
+        return ife.getTargetType() != null
+                ? ife.getTargetType().getSimpleName()
+                : "unknown";
+    }
+
+    private String invalidDateMessage() {
+        return "Invalid date format. Use yyyy-MM-dd (e.g. 2025-10-15)";
     }
 }

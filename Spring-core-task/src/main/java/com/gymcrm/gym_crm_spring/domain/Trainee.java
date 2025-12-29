@@ -39,9 +39,6 @@ public class Trainee {
     @Id
     private UUID id;
 
-    /**
-     * PK Trainee = FK → USERS.ID
-     */
     @OneToOne(optional = false, fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @MapsId
     @JoinColumn(name = "ID")

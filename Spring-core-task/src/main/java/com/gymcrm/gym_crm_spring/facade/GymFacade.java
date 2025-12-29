@@ -32,6 +32,7 @@ import com.gymcrm.gym_crm_spring.exception.TraineeNotFoundException;
 import com.gymcrm.gym_crm_spring.exception.TrainerNotFoundException;
 import com.gymcrm.gym_crm_spring.exception.TrainingTypeNotFoundException;
 import com.gymcrm.gym_crm_spring.exception.UserAlreadyExistsException;
+import com.gymcrm.gym_crm_spring.messaging.WorkloadMessageProducer;
 import com.gymcrm.gym_crm_spring.security.BruteForceProtectionService;
 import com.gymcrm.gym_crm_spring.security.TokenStore;
 import com.gymcrm.gym_crm_spring.service.TraineeService;
@@ -42,18 +43,13 @@ import com.gymcrm.gym_crm_spring.service.UserService;
 import com.gymcrm.gym_crm_spring.utils.UserUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.authentication.BadCredentialsException;
 
-import com.gymcrm.gym_crm_spring.config.WorkloadClient;
 import com.gymcrm.gym_crm_spring.dto.workload.ActionType;
 import com.gymcrm.gym_crm_spring.dto.workload.TrainerWorkloadRequest;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-import jakarta.servlet.http.HttpServletRequest;
 
 
 import java.time.LocalDate;
@@ -73,7 +69,8 @@ public class GymFacade {
     private final PasswordEncoder encoder;
     private final BruteForceProtectionService bruteForceProtectionService;
 
-    private final WorkloadClient workloadClient;
+    private final WorkloadMessageProducer workloadMessageProducer;
+
 
     @Transactional
     public TraineeRegistrationResponse registerTrainee(TraineeRegistrationRequest request) {
@@ -267,7 +264,7 @@ public class GymFacade {
                 .orElseThrow(() -> new TraineeNotFoundException(request.traineeUsername()));
 
         var trainer = trainerService.findByUsername(request.trainerUsername())
-                .orElseThrow(() -> new TraineeNotFoundException(request.trainerUsername())); // Поправь Exception если нужно
+                .orElseThrow(() -> new TrainerNotFoundException(request.trainerUsername()));
 
         var training = new Training();
         training.setTrainingName(request.trainingName());
@@ -279,38 +276,24 @@ public class GymFacade {
 
         trainingService.saveTraining(training);
 
+        TrainerWorkloadRequest workloadRequest = TrainerWorkloadRequest.builder()
+                .username(trainer.getUser().getUsername())
+                .firstName(trainer.getUser().getFirstName())
+                .lastName(trainer.getUser().getLastName())
+                .isActive(trainer.getUser().getActive())
+                .trainingDate(training.getTrainingDate())
+                .trainingDuration(training.getTrainingDuration())
+                .actionType(ActionType.ADD)
+                .build();
+
         try {
-            TrainerWorkloadRequest workloadRequest = TrainerWorkloadRequest.builder()
-                    .username(trainer.getUser().getUsername())
-                    .firstName(trainer.getUser().getFirstName())
-                    .lastName(trainer.getUser().getLastName())
-                    .isActive(trainer.getUser().getActive())
-                    .trainingDate(training.getTrainingDate())
-                    .trainingDuration(training.getTrainingDuration())
-                    .actionType(ActionType.ADD)
-                    .build();
-
-            String jwtToken = getJwtFromRequest();
-
-            if (jwtToken != null) {
-                workloadClient.updateWorkload(workloadRequest, jwtToken);
-            }
+            workloadMessageProducer.sendWorkloadUpdate(workloadRequest);
+            log.info("Workload message sent for trainer {}", workloadRequest.getUsername());
         } catch (Exception e) {
-            log.error("Failed to update workload service", e);
+            log.error("Failed to send workload message for trainer {}", workloadRequest.getUsername(), e);
         }
     }
 
-    private String getJwtFromRequest() {
-        var requestAttributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (requestAttributes != null) {
-            HttpServletRequest request = requestAttributes.getRequest();
-            String bearer = request.getHeader("Authorization");
-            if (bearer != null && bearer.startsWith("Bearer ")) {
-                return bearer.substring(7);
-            }
-        }
-        return null;
-    }
 
     @Transactional
     public void activateTrainee(TraineeActivationRequest request) {

@@ -41,9 +41,6 @@ public class Trainer {
     @EqualsAndHashCode.Include
     private UUID id;
 
-    /**
-     * PK Trainer = FK → USERS.ID
-     */
     @OneToOne(optional = false, fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @MapsId
     @JoinColumn(name = "ID")

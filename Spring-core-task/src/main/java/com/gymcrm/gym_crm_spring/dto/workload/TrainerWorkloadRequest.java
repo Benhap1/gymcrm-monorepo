@@ -13,7 +13,8 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TrainerWorkloadRequest {
+public class TrainerWorkloadRequest{
+
     private String username;
     private String firstName;
     private String lastName;
