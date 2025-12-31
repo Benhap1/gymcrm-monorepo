@@ -58,8 +58,8 @@ services:
   # === Gym CRM Core Service ===
   gym-crm-service:
     build:
-      context: ./Spring-core-task
-    container_name: gym-crm-service
+      context: ./gym-crm-core-service
+    container_name: gym-crm-core-service
     ports:
       - "8080:8080"
     depends_on:

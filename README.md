@@ -1,6 +1,6 @@
 # GymCRM Monorepo
 
-Монопо-репозиторий системы управления фитнес-клубом (Gym CRM), реализованный в виде микросервисной архитектуры на Spring Boot.
+Моно-репозиторий системы управления фитнес-клубом (Gym CRM), реализованный в виде микросервисной архитектуры на Spring Boot.
 
 ## Общая архитектура
 
@@ -9,7 +9,7 @@
 | Сервис                        | Порт | Описание                                                                                   | Технологии                                      |
 |-------------------------------|------|--------------------------------------------------------------------------------------------|-------------------------------------------------|
 | **gym-crm-discovery**         | 8761 | Сервер обнаружения сервисов (Eureka Server)                                                 | Spring Cloud Netflix Eureka Server              |
-| **Spring-core-task** (gym-crm-service) | 8080 | Основной бизнес-сервис: регистрация, аутентификация, управление trainee/trainer/training   | Spring Boot, Spring Security (JWT), JPA, PostgreSQL, ActiveMQ, Swagger |
+| **gym-crm-core-service** (gym-crm-service) | 8080 | Основной бизнес-сервис: регистрация, аутентификация, управление trainee/trainer/training   | Spring Boot, Spring Security (JWT), JPA, PostgreSQL, ActiveMQ, Swagger |
 | **trainer-workload-service**  | 8081 | Сервис агрегации нагрузки тренеров (хранит суммарные часы тренировок по месяцам/годам)     | Spring Boot, JMS (ActiveMQ), In-memory storage, Eureka Client |
 
 Сервисы взаимодействуют через:
@@ -51,7 +51,7 @@
 ## Структура репозитория
 gymcrm-monorepo/
 ├── gym-crm-discovery/              # Eureka Server
-├── Spring-core-task/               # Основной сервис (gym-crm-service)
+├── gym-crm-core-service/           # Основной сервис (gym-crm-service)
 └── trainer-workload-service/       # Сервис нагрузки тренеров
 
 ## Запуск локально (с Docker Compose)
@@ -79,7 +79,7 @@ docker-compose up --build
 
 
 ## База данных
-Миграции находятся в Spring-core-task/src/main/resources/db/migration.
+Миграции находятся в gym-crm-core-service/src/main/resources/db/migration.
 Flyway автоматически применяет их при старте сервиса.
 В схеме уже предзаполнены типы тренировок: Yoga, Crossfit, Boxing.
 
