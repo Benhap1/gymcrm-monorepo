@@ -241,21 +241,27 @@ public class GymFacade {
             LocalDate to,
             String traineeName
     ) {
-        var trainer = trainerService.findByUsername(username)
+        trainerService.findByUsername(username)
                 .orElseThrow(() -> new TrainerNotFoundException(username));
 
         var trainings = trainingService.findByCriteriaForTrainer(username, from, to, traineeName)
                 .stream()
-                .map(training -> new TrainerTrainingsListResponse.TrainerTrainingResponse(
-                        training.getTrainingName(),
-                        training.getTrainingDate(),
-                        training.getTrainingType().getTrainingTypeName(),
-                        training.getTrainingDuration(),
-                        training.getTrainee().getUser().getUsername()
-                ))
+                .map(this::mapToTrainerTrainingResponse)
                 .toList();
 
         return new TrainerTrainingsListResponse(trainings);
+    }
+
+    private TrainerTrainingsListResponse.TrainerTrainingResponse mapToTrainerTrainingResponse(
+            Training training
+    ) {
+        return new TrainerTrainingsListResponse.TrainerTrainingResponse(
+                training.getTrainingName(),
+                training.getTrainingDate(),
+                training.getTrainingType().getTrainingTypeName(),
+                training.getTrainingDuration(),
+                training.getTrainee().getUser().getUsername()
+        );
     }
 
     @Transactional
