@@ -30,6 +30,7 @@ import com.gymcrm.gym_crm_spring.exception.InvalidCredentialsException;
 import com.gymcrm.gym_crm_spring.exception.LockedException;
 import com.gymcrm.gym_crm_spring.exception.TraineeNotFoundException;
 import com.gymcrm.gym_crm_spring.exception.TrainerNotFoundException;
+import com.gymcrm.gym_crm_spring.exception.TrainingNotFoundException;
 import com.gymcrm.gym_crm_spring.exception.TrainingTypeNotFoundException;
 import com.gymcrm.gym_crm_spring.exception.UserAlreadyExistsException;
 import com.gymcrm.gym_crm_spring.messaging.WorkloadMessageProducer;
@@ -54,6 +55,7 @@ import com.gymcrm.gym_crm_spring.dto.workload.TrainerWorkloadRequest;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -298,6 +300,28 @@ public class GymFacade {
         } catch (Exception e) {
             log.error("Failed to send workload message for trainer {}", workloadRequest.getUsername(), e);
         }
+    }
+
+    @Transactional
+    public void deleteTraining(UUID trainingId) {
+        Training training = trainingService.findById(trainingId)
+                .orElseThrow(() -> new TrainingNotFoundException(trainingId));
+
+        trainingService.delete(trainingId);
+
+        Trainer trainer = training.getTrainer();
+
+        TrainerWorkloadRequest request = TrainerWorkloadRequest.builder()
+                .username(trainer.getUser().getUsername())
+                .firstName(trainer.getUser().getFirstName())
+                .lastName(trainer.getUser().getLastName())
+                .isActive(trainer.getUser().getActive())
+                .trainingDate(training.getTrainingDate())
+                .trainingDuration(training.getTrainingDuration())
+                .actionType(ActionType.DELETE)
+                .build();
+
+        workloadMessageProducer.sendWorkloadUpdate(request);
     }
 
 

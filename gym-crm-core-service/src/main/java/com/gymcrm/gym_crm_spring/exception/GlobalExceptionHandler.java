@@ -70,7 +70,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             TrainingTypeNotFoundException.class,
             TraineeNotFoundException.class,
-            TrainerNotFoundException.class
+            TrainerNotFoundException.class,
+            TrainingNotFoundException.class
     })
     public ResponseEntity<ApiErrorResponse> handleNotFound(RuntimeException ex, HttpServletRequest req) {
         String code = ex.getClass().getSimpleName().toUpperCase();
